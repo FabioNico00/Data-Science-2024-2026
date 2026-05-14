@@ -1,0 +1,688 @@
+---
+title: "Rapporto sulla felicità mondiale"
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+# 1. Descrizione del dataset
+
+### Contesto
+
+Il [Dataset](https://www.kaggle.com/datasets/unsdsn/world-happiness/data) utilizzato per questa analisi è stato preso da Kaggle e fa riferimento al **World Happiness Report**, un’indagine sullo stato della felicità globale. Il primo rapporto è stato pubblicato nel 2012, seguito dal secondo nel 2013, dal terzo nel 2015 e dal quarto nell'aggiornamento del 2016. Il **World Happiness Report 2017**, che classifica 155 paesi in base ai loro livelli di felicità, è stato presentato alle Nazioni Unite durante un evento in occasione della **Giornata Internazionale della Felicità**, il 20 marzo. Il rapporto continua a guadagnare riconoscimento globale, poiché governi, organizzazioni e società civile utilizzano sempre più spesso gli indicatori di felicità per orientare le loro decisioni politiche. Esperti di vari settori – economia, psicologia, analisi di sondaggi, statistiche nazionali, salute, politiche pubbliche e altro – spiegano come le misurazioni del benessere possano essere utilizzate efficacemente per valutare il progresso delle nazioni. I rapporti analizzano lo stato della felicità nel mondo e mostrano come la nuova scienza della felicità spieghi le variazioni della felicità personale e nazionale.
+
+### Contenuto
+
+I punteggi e le classifiche sulla felicità utilizzano i dati del **Gallup World Poll**. I punteggi si basano sulle risposte alla principale domanda di valutazione della vita posta nel sondaggio. Questa domanda, nota come **scala di Cantril**, chiede ai partecipanti di immaginare una scala in cui il miglior scenario di vita possibile per loro è un **10** e il peggiore è uno **0**, e di valutare la loro vita attuale su questa scala. I punteggi sono basati su campioni rappresentativi a livello nazionale per l'anno 2019 e vengono ponderati con i pesi Gallup per garantire stime affidabili.
+
+Le colonne successive al **punteggio di** **felicità** (*SCORE*) stimano l’impatto di sei fattori – **produzione economica, supporto sociale, aspettativa di vita, libertà decisionale, assenza di corruzione e generosità** – nel contribuire a rendere le valutazioni della vita più elevate in ciascun paese rispetto a **Dystopia**, un paese ipotetico che rappresenta il livello più basso di felicità a livello mondiale per ciascuno dei sei fattori. Questi fattori non influenzano direttamente il punteggio totale di ogni paese, ma spiegano perché alcuni paesi si classificano meglio di altri.
+
+### Cos’è Dystopia?
+
+**Dystopia** è un paese immaginario con la popolazione meno felice del mondo. Il suo scopo è fornire un punto di riferimento con cui confrontare favorevolmente tutti gli altri paesi (nessun paese ottiene risultati peggiori di Dystopia) rispetto ai sei fattori chiave. I punteggi più bassi osservati per questi sei fattori definiscono Dystopia.
+
+### Variabili di interesse
+
+Nell'analisi verranno prese in considerazioni 6 variabili che descrivono in che misura questi fattori contribuiscono alla valutazione della felicità in ogni paese:
+
+-   **GDP per capita:** Misura la ricchezza economica media per persona in un paese, influenzando il benessere materiale;
+
+-   **Social support:** Indica il livello di aiuto e sostegno che una persona può ricevere dalla famiglia o dagli amici in momenti di difficoltà;
+
+-   **Healthy life expectancy:** Rappresenta il numero medio di anni di vita in buona salute attesi alla nascita;
+
+-   **Freedom to make life choices:** Riflette il grado di libertà percepita dagli individui nel prendere decisioni importanti sulla propria vita;
+
+-   **Generosity:** Misura la propensione delle persone a donare denaro o aiutare gli altri senza aspettarsi un ritorno diretto;
+
+-   **Perception of corruption:** Indica la percezione della popolazione sulla diffusione della corruzione nel governo e nel settore privato.
+
+## 1.1 Analisi del Dataset
+
+Iniziamo l'analisi del dataset costruendo la **matrice dei dati** (**X**) e la **matrice delle medie di ogni colonna** (**M**). Le due matrici hanno dimensioni uguali (156,6) quindi è possibile calcolare gli scarti sottraendo alla **matrice dei dati** la **matrice delle medie** (**X**-**M**); da questa sottrazione si ottiene la **matrice dei dati centrati** (**XC**). Moltiplicando la **trasposta della** **matrice dei dati centrati** per la **matrice stessa** (**t(XC)** %\*% **XC**) si ottiene la **matrice delle devianze e codevianze** (**COD**). Moltiplicando la **matrice dei dati centrati** (**XC**) per lo *scalare* (*1/sqrt(n-1)*) si ottiene una **matrice che tiene conto del numero delle osservazioni** (**XCN**), in questo caso n=156. Dal prodotto tra la trasposta di questa matrice e la matrice stessa (**t(XCN)**%\*%**XCN**) si ottiene la **matrice delle varianze e codevianze** (**COV**).
+
+```{r Analisi del dataset}
+X <- as.matrix(Happy[,-1])
+medie <- colMeans(X)
+M <- matrix(rep(medie,156),156,6,byrow = T) #Matrice delle medie
+XC <- (X-M)     #Matrice centrata
+COD <- t(XC)%*%XC   #Matrice di devianza e codevianza
+XCN <- (X-M)*(1/sqrt(156-1))    #Matrice centrata e divisa per numerosità
+COV <- t(XCN)%*%XCN     #Matrice di varianza e covarianza
+```
+
+## 1.2 Costruzione della matrice di correlazione
+
+Per ottenere la **matrice di correlazione** (**R**) si calcola la *deviazione standard* (*sigma*) sulle colonne della **matrice dei dati** (**X**) per poi costruire la **matrice delle deviazioni standard per ogni osservazione** (**SD**). Moltiplicando la matrice centrata (**XCN**) per l'inversa della matrice appena trovata (**SD**) si ottiene la **matrice standardizzata** (**Z**) avente media 0 e varianza 1. Infine, dato che le variabili prese in esame sono quantitative, dal prodotto tra la **trasposta della matrice standardizzata** e la **matrice standardizzata** stessa (**t(Z)**%\*%**Z**) ricavo la **matrice delle correlazioni** (**R**).
+
+```{r Matrice di correlazione}
+library(corrplot)
+sigma<- apply(X,2,sd)
+SD<- matrix(1,156,1) 
+SD<- SD%*%sigma   #Matrice delle deviazioni standard
+Z<-XCN*(1/SD)     #Matrice Standardizzata
+R<-t(Z)%*%Z
+R<- round(R,digits = 3)    #Matrice di correlazione
+corrplot(R,method="number",type = "upper", tl.cex = 0.9, number.cex = 0.92)
+```
+
+## 1.3 Interpretazione della matrice di correlazione
+
+L'immagine mostra una **matrice di correlazione** basata su diverse variabili relative alla felicità e al benessere. Analizziamo i punti chiave:
+
+-   **Correlazione forte tra GDP per capita e altre variabili:**
+
+    -   **GDP per capita e Healthy life expectancy** hanno una forte correlazione positiva (r=0.84): un PIL pro capite più alto è associato a un'aspettativa di vita più lunga;
+
+    -   **GDP per capita e Social support** presentano una forte correlazione positiva (r=0.76): paesi più ricchi tendono ad avere una migliore rete di supporto sociale;
+
+-   **Social support è fortemente correlato con Healthy life expectancy** (r=0.72): avere una buona rete sociale sembra essere legato a una maggiore longevità;
+
+-   **Freedom to make life choices ha una correlazione moderata con GDP per capita** (r=0.38) **e Social support** (r=0.45): Le persone nei paesi più ricchi e con più supporto sociale tendono ad avere maggiore libertà di scelta;
+
+-   **Generosity ha correlazioni molto basse con le altre variabili**: la generosità non sembra influenzare direttamente le altre variabili;
+
+-   **Perceptions of corruption ha correlazioni moderate con Freedom to make life choices** (r=0.44) **e generosità** (r=0.33): nei paesi con maggiore libertà di scelta e generosità, la percezione della corruzione tende a essere maggiore.
+
+# 2. Analisi in Componenti Principali
+
+L'*analisi in componenti principali* (*ACP*) ha come obiettivo la riduzione della dimensionalità di un fenomeno oggetto d'indagine mantenendo l'informazione in esso contenuta, si tratta di un approccio *data-driven* cioè un approccio di ricerca di tipo *bottom-up* che esplora i dati alla ricerca di possibili strutture sottostanti (variabili latenti) che organizzano i significati del fenomeno in oggetto di studio. L'*ACP* è una tecnica applicabile a fenomeni misurati con variabili quantitative come nel caso del dataset preso in esame.
+
+## 2.1 Estrazione degli autovalori e riduzione della complessità
+
+Il primo passo per l'utilizzo dell'*ACP* consiste nella decomposizione della **matrice di correlazione** (**R**) in termini di *autovalori* e *autovettori* utilizzando il comando `eigen`:
+
+```{r Ricavare gli autovalori}
+eig<- eigen(R)
+lambda<- eig$values
+varTOT<- sum(lambda)
+```
+
+La somma degli *autovalori* è uguale alla traccia della **matrice di correlazione** (**R**), cioè la somma degli elementi sulla diagonale maggiore, questo perché la variabilità totale della matrice di correlazione è uguale al numero di variabili, in questi caso avremo che la variabilità totale è `` `r varTOT` ``.
+
+Per determinare quante componenti prendere in considerazione per ridurre la complessità del fenomeno di studio si utilizzano 3 criteri.
+
+### 2.1.1 Criterio della variabilità spiegata cumulata
+
+Il primo criterio fa riferimento alla quota di varianza spiegata sul totale, dove si sceglie una soglia convenzionale (70%) della variabilità dei dati in modo da avere in poche componenti gran parte della variabilità complessiva. Per valutare tale parametro si osserva la varianza spiegata cumulata:
+
+```{r Variabilità cumulata}
+varEXP <- lambda/varTOT*100
+varEXP <- round(varEXP, digits=3)  #Variabilità SPIEGATA
+var_cum <- cumsum(varEXP)    #Variabilità SPIEGATA cumulata
+var_cum
+```
+
+in questo caso le prime due componenti principali spiegano l' 73.591% della variabilità dei dati.
+
+### 2.1.2 Criterio del salto
+
+Il secondo criterio fa affidamento alla valutazione della rappresentazione grafica tramite diagramma a barre degli *autovalori*, anche chiamato *scree-plot*, scegliendo il punto in cui c'è una caduta evidente della varianza spiegata da ciascun fattore.
+
+```{r Scree-plot degli autovalori}
+barplot(lambda, main = "Scree-Plot degli autovalori", 
+        xlab = "Componenti", ylab = "lambda",col = "coral")
+lines(x = lambda, y=NULL, type="b", pch=19, col = "blue")
+```
+
+In questo caso dalla rappresentazione è possibile vedere che la caduta di variabilità spiegata maggiore si trova tra la prima e la seconda componente principale.
+
+### 2.1.3 Criterio degli autovalori\>=1
+
+In base al terzo criterio si scelgono le componenti associate agli *autovalori* maggiori o uguali a 1:
+
+```{r}
+lambda[which(lambda > 1)]
+```
+
+Coerentemente con i risultati degli altri criteri possiamo determinare con sicurezza che in questo caso bisogna untilizzare 2 componenti principali, che spiegano il 73.591% della variabilità dei dati.
+
+## 2.2 Estrazione degli autovettori
+
+Dopo aver identificato quante componenti selezionare, bisogna ottenerne la forma esplicita. Gli *autovettori* ottenuti dal comando `eigen` rappresentano la nuova base per rappresentare in modo ottimale l'informazione relativa alla variabilità e alle correlazioni presenti nei dati. Gli *autovettori* rappresentano i "pesi" che permettono di ottenere i nuoi indici compositi per ogni individuo usando il prodotto tra la **matrice dei dati standardizzati** (**Z**) e i "pesi" definiti dalle componenti degli *autovettori* (*u*). In questo modo ottengo la **prima componente principale** (**CP**).
+
+```{r Prima componente principale}
+u<- eig$vectors    #Autovettori
+CP<-Z%*%u     #Spazio degli individui
+```
+
+Il prossimo passo consiste nel ricavare la **matrice dei Factor Pattern** (**FP**). Essa rappresenta le correlazioni tra le variabili originarie (**X**) e le nuove variabili (**CP**).
+
+```{r Matrice Factor Pattern}
+FP <- round(cor(X, CP), 3)
+```
+
+## 2.2 Rappresentazioni delle variabili e degli individui
+
+### 2.2.3 Piano delle variabili
+
+```{r}
+library(FactoMineR)
+library(factoextra)
+plot.PCA(acp.dir, choix = "var")
+```
+
+#### Tabella delle coordinate
+
+```{r}
+round(acp.dir$var$coord, 3)
+```
+
+L'intensità di associazione è un valore assoluto. Le coordinate coincidono con le correlazioni tra la variabile latente e la variabile manifesta.
+
+Osservando le variabili nel grafico della PCA, possiamo rinominare gli assi in base al loro significato principale:
+
+-   **Dimensione 1 (49.83%)**: Questa dimensione sembra essere fortemente correlata con **fattori economici e di benessere sociale**, come **GDP per capita, Healthy life expectancy e Social support**.
+
+-   **Dimensione 2 (23.76%)**: Qui troviamo variabili come **Generosity, Perceptions of corruption e Freedom to make life choices**, che sono più legate a **valori morali, libertà e fiducia nelle istituzioni**.
+
+```{r}
+plot.PCA(acp.dir, choix = "var")+
+  labs(title = "ACP delle Variabili",
+       x = "Benessere economico e sociale",
+       y = "Libertà, fiducia e valori sociali")
+```
+
+Nel cerchio delle correlazioni i vettori esprimono la qualità della rappresentazione delle variabili rispetto alle componenti principali. Tanto più un vettore si avvicina al cerchio tanto maggiore è la qualità della rappresentazione, inoltre tramite il cosenquadro calcolato tra gli assi e i vettori si può determinare il contributo dato dalle variabili alle componenti principali. Ricaviamo il cosenquadro delle variabili rispetto alle prime due componenti principali:
+
+```{r Contributo per componente principale}
+acp.dir$var$cos2[,1:2]
+```
+
+e la somma sulle righe per valutare quanto ogni variabile influenza la rappresentazione del Cerchio delle correlazioni (fig.2).
+
+```{r Contributo totale}
+cos<-acp.dir$var$cos2[,1:2] 
+round(rowSums(cos),4)
+```
+
+Da questi risultati si può notare che le variabili *Healthy.life.expectancy, social.support* e *GDP.per.capita* hanno una qualità della rappresentazione elevata ($Cos^2 > 0.75$ ).
+
+**Tabella correlazioni V. Latenti V. Manifeste**
+
+```{r}
+round(res.pca$var$cor, 3)
+```
+
+La tabella delle Coordinate e la tabella delle correlazioni $Corr(Dim, Z)$ tra le variabili manifeste e le variabili latenti coincidono quando la matrice dei dati è standardizzata (la matrice standardizzata è la $Z$). La tabella delle correlazioni viene anche chiamata **Pattern Matrix**.
+
+**Tabella dei contributi**
+
+```{r}
+round(acp.dir$var$contrib, 3)
+```
+
+Dalla tabella dei contributi si può notare che, coerentemente con i risultati osservati col cerchio delle correlazioni, le variabili *Healthy.life.expectancy, social.support* e *GDP.per.capita* contribuisconomaggiormente nella prima dimensione, mentre le variabili *Generosity*, *Perceptions of corruption* e *Freedom to make life choices* contribuiscono maggiormente nella seconda dimensione.
+
+## 2.3 Piano degli individui
+
+Gli stessi passaggi possono essere svolti nel piano degli individui.
+
+```{r}
+plot.PCA(acp.dir,choix = "ind")
+```
+
+**Tabella delle coordinate**
+
+```{r}
+round(acp.dir$ind$coord, 3)
+```
+
+**Tabella della qualità della rappresentazione** $Cos^2$
+
+```{r}
+round(acp.dir$ind$cos2, 3)
+```
+
+**Tabella dei contributi**
+
+```{r}
+round(acp.dir$ind$contrib, 3)
+```
+
+Infine combiniamo i due grafici in un biplot individui-variabili per osservare le relazioni tra variabili e singoli individui.
+
+```{r}
+fviz_pca_biplot(acp.dir, col.ind="contrib", 
+             xlab= "Benessere economico e sociale",
+        ylab="Libertà, fiducia e valori sociali") + 
+  scale_color_gradient2(low="green3", mid="orange", 
+                        high="purple", midpoint = 2)
+```
+
+# 3. Cluster Analysis
+
+La *Cluster Analysis* si usa per raggruppare unità statistiche che hanno caratteristiche in comune ed assegnarle a categorie non definite a priori in modo da avere gruppi il più possibile omogenei all'interno ed eterogenei all'esterno.
+
+Per migliorare la visibilità dei grafici verranno presi in considerazione solo i primi 50 individui del dataset.
+
+## 3.1 Calcolo della matrice delle distanze (D)
+
+Dopo aver ottenuto la **matrice sample** (**MS**) ricaviamo la **matrice delle distanze** (**D**) utilizzando la distanza di Manhattan per trovare le distanze minime tra le coppie di individui e per procedere alla formazione dei cluster.
+
+```{r Matrice delle distanze}
+MS<- Z[1:50,]
+D <- round(dist(MS,method = "manhattan"),3)
+```
+
+Di seguito verranno illustrati i 3 principali tipi di legami.
+
+## 3.2 Metodo del legame semplice
+
+Il *metodo del legame singolo* (criterio del salto minimo, *single linkage* o *nearest neighbor*) si basa su un criterio di distanza minima tra due elementi. L'adozione di questo algoritmo per la composizione dei gruppi pone in evidenza le similarità tra gli elementi: privilegia le differenze tra i gruppi piuttosto che l'omogeneità degli elementi di ogni gruppo. Questo tipo di legame risulta essere nella composizione dei cluster molto veloce con l'unico svantaggio che si riscontra nella formazione di gruppi troppo omogenei tra di loro o composti da singoli elementi.
+
+```{r Metodo del legame semplice}
+hc_s <- hclust(D,method="single")
+n <- nrow(MS)
+n_clus <- seq(n-1,1)
+d_fus_s <- hc_s$height
+plot(hc_s$height,n_clus,"b", main="Screeplot Legame singolo", xlab="Distanza di Fusione",ylab="N. di gruppi",cex=0.6, col="orange",lwd=2.5)
+groups <- cutree(hc_s, k=5) # TAGLIO DELL'ALBERO
+plot(hc_s)
+rect.hclust(hc_s, k=5, border="orange")
+```
+
+Tramite il metodo del legame singolo sono stati creati 3 cluster composti da singoli individui, 1 cluster composto da 2 individui e un cluster comprendente gli individui restanti.
+
+## 3.3 Metodo del legame completo
+
+Il *metodo del legame completo* *(complete-linkage* o *furthest neighbor*) si basa sul criterio di distanza massima tra due elementi. Tale criterio di aggregazione è più lento rispetto al legame singolo, privilegiando l'omogeneità interna al gruppo a discapito della differenziazione netta tra i gruppi.
+
+```{r Metodo del legame completo}
+hc_c <- hclust(D,method = "complete")
+d_fus_c <- hc_c$height
+plot(hc_c$height,n_clus,"b", main="Screeplot Legame completo", xlab="Distanza di Fusione",ylab="N. di gruppi",cex=0.6, col="green",lwd=2.5)
+groups <- cutree(hc_c, k=5) # TAGLIO DELL'ALBERO
+plot(hc_c)
+rect.hclust(hc_c, k=5, border="green")
+```
+
+Utilizzando il metodo del legame completo sono stati creati 5 cluster comprendenti numeri relativamente stabili di individui.
+
+## 3.4 Metodo del legame centrale
+
+Il *metodo del legame medio* (del centroide o *average linkage*) si basa sul calcolo della media aritmetica delle distanze tra tutti gli elementi che compongono i due gruppi. Rispetto all'elemento medio si raggruppano le osservazioni che hanno la distanza minima. Essendo basato sulla media delle distanze, i gruppi risulteranno omogenei al proprio interno e ben differenziati tra loro.
+
+```{r Metodo del legame centrale}
+hc_a <- hclust(D,method = "average")
+d_fus_a <- hc_a$height
+plot(hc_a$height,n_clus,"b", main="Screeplot Legame centrale", xlab="Distanza di Fusione",ylab="N. di gruppi",cex=0.6, col="purple",lwd=2.5)
+groups <- cutree(hc_a, k=5) # TAGLIO DELL'ALBERO
+plot(hc_a)
+rect.hclust(hc_a, k=5, border="purple")
+```
+
+Con il metodo del legame medio i cluster creati hanno numeri variabili di indivui, viene creato 1 cluster composto da un singolo elemento, 1 cluster composto da 2 elementi e 2 cluster comprendenti i restanti elementi.
+
+## 3.5 Cluster Analysis sulle componenti principali
+
+```{r}
+res.pca <- PCA(MS, graph = T)
+```
+
+```{r}
+SCORES <- res.pca$ind$coord[,1:2]
+Dacp <- round(dist(SCORES),3)
+hc_acp<-hclust(Dacp, method="comp") #ANALISI CLUSTER
+d_fus_acp<-hc_acp$height
+groups <- cutree(hc_acp, k=5)
+plot(hc_acp$height,n_clus,"b",main="Screeplot-Legame
+Completo",sub="Coordinate Fattoriali",xlab="Distanza di
+Fusione",ylab="N. di gruppi",cex=0.6,col="coral",lwd=2.5)
+plot(hc_acp)
+rect.hclust(hc_acp, k=5, border="coral")
+```
+
+Svolgendo la cluster analysis sui risultati dell'ACP si ottengono 4 cluster di dimensioni simili e un cluster composto da un singolo *outlier,* in concordanza con i risultati degli altri metodi analizzati in precedenza.
+
+# 4. Analisi delle corrispondenze
+
+## 4.1 Preparazione del Dataset
+
+Per l'Analisi delle corrispondenze è stato scelto un altro dataset che fa riferimento all'efficienza di alcuni computer. Per prima cosa è stato importato il dataset e si è creata la tabella di contingenza. I pacchetti *Likert* e *Reshape2* serviranno per la creazione della tabella delle corrispondenze e per l'analisi dei dati categoriali.
+
+```{r}
+library(likert)
+library(reshape2)
+```
+
+Si procede poi ad eliminare dal dataset le colonne non utilizzabili e a creare la tabella di contingenza.
+
+```{r}
+manufacturing_6G_dataset <- read.csv("manufacturing_6G_dataset.csv") 
+manufacturing_6G_dataset<-manufacturing_6G_dataset[1:150,
+                                                   -c(1,2,4,5,6,7,8,9,10,11,12)]
+
+gap_temp <- reshape2::melt(manufacturing_6G_dataset, id=c("Operation_Mode"),
+                           variable.name = "Efficiency_Status",
+                           value.name = "Punteggio")
+
+gap <- dcast(gap_temp,  Efficiency_Status~ Punteggio,
+             value.var = "Operation_Mode",
+             fun.aggregate = length)
+
+gap_temp2 <- reshape2::melt(manufacturing_6G_dataset, id=c("Efficiency_Status"),
+                           variable.name = "Operation_Mode",
+                           value.name = "Punteggio")
+
+gap2 <- dcast(gap_temp,  Operation_Mode~ Punteggio,
+             value.var = "Efficiency_Status",
+             fun.aggregate = length)
+
+rownames(gap2) <- gap2[,1]
+
+gap2 <- gap2[,-1]
+
+print(gap2)
+```
+
+La funzione `manufacturing_6G_dataset[1:150,-c(1,2,4,5,6,7,8,9,10,11,12)]` mantiene solo le prime 150 righe e rimuove le colonne inutilizzabili (1,2,4,...,12) del dataset di riferimento. La funzione `reshape2::melt(manufacturing_6G_dataset, id=c("Operation_Mode"), variable.name = "Efficiency_Status", value.name = "Punteggio")` riorganizza le modalità della variabile qualitativa mettendole in riga, quindi converte il dataset in formato lungo con tre colonne, ovvero *"Operation_Mode"*, *"Efficiency_Status"* e *"Punteggio"*. La funzione `dcast` riorganizza poi i dati in formato largo, quindi le precedenti colonne diventano righe. Lo stesso procedimento viene fatto per `gap2`. La funzione `rownames(gap2)<-gap2[,1]` assegna i nomi alle righe; la funzione `gap2<-gap2[,-1]` rimuove la colonna dei nomi. Questo procedimento ci permette di trasformare il dataset in una matrice di frequenze per l'AC.
+
+## 4.2 Analisi delle Corrispondenze
+
+Si creano le matrici delle frequenza relative, dei profili riga e dei profili colonna. Si esegue il test del *Chi-Quadro* per verificare l'interdipendenza tra righe e colonne. Successivamente si calcolano le frequenze relative (**F**) e si creano le matrici dei profili, sia riga (**Pr**) che colonna (**Pc**). **Dr** e **Dc** sono matrici diagonali che presentano sulla diagonale maggiore le masse rispettivamente dei profili riga e dei profili colonna.
+
+```{r}
+X<-as.matrix(gap2)
+chiquadro<-chisq.test(X)
+n<-sum(X)
+F<-X/n
+sumrow<-apply(F,1,sum)
+sumcol<-apply(F,2,sum)
+Dr<-diag(sumrow)
+Dr_inv<-solve(Dr)
+Pr<-Dr_inv%*%F
+Dc<-diag(sumcol)
+Dc_inv<-solve(Dc)
+Pc<-F%*%Dc_inv
+
+print(Pc)
+print(Pr)
+print(Dc)
+print(Dr)
+```
+
+`X<-as.matrix(gap2)` converte la tabella creata precedentemente in una matrice **X**. `chisq.test()` esegue il test del *Chi-Quadro*. `solve()` crea l'inversa di una matrice. `sumcol` e `sumrow` fanno riferimento ai pesi rispettivamente della Matrice dei Profili colonna e la Matrice dei Profili riga.
+
+Si calcolano anche le distanze del Chi-Quadro, sia per **Pr** che per **Pc**. Questo permette di raggruppare nel caso le colonne e le righe che risultano rindondanti, senza perdere informazione.
+
+```{r}
+d_r<-Pr[1,]-Pr[2,]
+d<-d_r^2/sumcol
+d_chi_r<-sqrt(sum(d))
+
+dc<-Pr[,1]-Pr[,2]
+dc<-dc^2/sumrow
+d_chi_c<-sqrt(sum(dc))
+
+print(d_chi_c)
+print(d_chi_r)
+```
+
+Si calcolano i profili medi.
+
+```{r}
+Pr_medio<-sumrow%*%Pr
+Pc_medio<-sumcol%*%t(Pc)
+
+print(Pr_medio)
+print(Pc_medio)
+```
+
+A partire dall'equazione caratteristica e dalla matrice **S** che fa riferimento allo spazio delle righe, si calcolano **S tilde**, quindi una matrice dello spazio del profili riga e colonna che sia simmetrica, e **S star**, che fa riferimento allo spazio delle colonne.
+
+```{r}
+S<-t(Pr)%*%Pc
+A<-t(F)%*%Dr_inv%*%F
+Dc_12<-diag(sumcol^(-1/2))
+S_tilde<-Dc_12%*%A%*%Dc_12
+AC<-eigen(S_tilde)
+lambda<-as.matrix(AC$values)
+lambda<-lambda[-1,]
+S_star<-F%*%Dc_inv%*%t(F)%*%Dr_inv
+```
+
+Si estraggono poi gli autovalori e gli autovettori, e si scelgono i fattori principali.
+
+```{r}
+w<-AC$vectors
+u<-Dc^(1/2)%*%w
+u<-u[,-1]
+sq_lambda<-diag((sqrt(lambda))^(-1))
+v<-F%*%Dc_inv%*%u%*%sq_lambda
+
+fp_r<-Dc_inv%*%u
+fp_c<-Dr_inv%*%v
+
+print(w)
+print(u)
+print(v)
+print(fp_r)
+print(fp_c)
+```
+
+Si calcola successivamente l'inerzia, l'inerzia spiegata e l'inerzia cumulata. Si costruisce poi lo scree-plot dell'inerzia spiegata.
+
+```{r}
+inerzia<-sum(diag(S))-1
+in_exp<-lambda/inerzia
+in_exp_cum<-cumsum(in_exp)
+
+screeplot<-barplot(in_exp,main="Scree-plot inerzia",xlab="Dimensione",
+                   ylab="Lambda",col="lightblue")
+```
+
+Si procede calcolando le coordinate principali, sia nello spazio delle righe che in quello delle colonne.
+
+```{r}
+PHI_coord<-Dc_inv%*%t(F)%*%fp_c
+PSI_coord<-Dr_inv%*%F%*%fp_r
+
+print(PHI_coord)
+print(PSI_coord)
+```
+
+Da questi dati possiamo costruire una matrice che contiene le coordinate principali delle righe e delle colonne.
+
+```{r}
+PRINCOORD<-rbind(PSI_coord,PHI_coord)
+righe<-row.names(X);colonne<-colnames(X)
+plot(PRINCOORD[,1],PRINCOORD[,2],type="n",main="Coordinate Principali",xlab="Asse1",ylab="Asse2")+
+  text(PRINCOORD[1:3,1],PRINCOORD[1:3,2],labels=righe,col="springgreen4")
+text(PRINCOORD[3:6,1],PRINCOORD[3:6,2],labels=colonne,col="violetred")
+abline(h=0,v=0,lty=2,lwd=1.5)
+```
+
+La funzione `rbind()` combina le coordinate principali delle righe e delle colonne in un'unica matrice. Questo permette la rappresentazione grafica.
+
+Le cooordinate si compongono sia delle coordinate stesse che delle masse. I contributi assoluti calcolano quanto una modalità influenza la creazione di un asse.
+
+Si calcolano i contributi assoluti, sia nello spazio delle righe che nello spazio delle colonne.
+
+```{r}
+ca_r<-Dr%*%fp_c^2
+ca_c<-Dc%*%fp_r^2
+print(ca_r)
+print(ca_c)
+```
+
+## 4.3 Analisi delle Corrispondenze con pacchetto CA.
+
+Dopo aver creato la matrice, l'Analisi delle Corrispondenze si può fare facilmente grazie al pacchetto CA.
+
+Si procede ad installare il pacchetto e applicarlo.
+
+```{r}
+library(ca) 
+library(rgl) 
+AC<-ca(X) 
+summary(AC) 
+plot(AC, labels=1)
+```
+
+L'***Analisi dell Corrispondenze*** si può anche fare con il pacchetto *FactoMineR*.
+
+```{r}
+ca<-CA(X, ncp = 5, row.sup = NULL, col.sup = NULL, 
+       quanti.sup=NULL, quali.sup = NULL, 
+       graph = TRUE, axes = c(1,2), row.w = NULL) 
+```
+
+La funzione `CA` esegue l'Analisi delle Corrispondenze.
+
+Per ottenere grafici migliori usiamo il pacchetto *factoextra*. La funzione `fviz_eig(ca)` mostra l'inerzia spiegata.
+
+```{r}
+library("factoextra")
+library("ggplot2")
+
+fviz_eig(ca, choice = "variance", addlabels = TRUE)
+
+fviz_ca_biplot(ca, repel = TRUE)
+
+fviz_ca_row(ca, col.row = "cos2", gradient.cols = c( "#E7B800"), 
+            repel = TRUE,midpoint = 1 )
+
+fviz_ca_col(ca, col.col = "cos2", gradient.cols = c("#00AFBB"), 
+            repel = TRUE, midpoint = 1)
+
+fviz_contrib(ca, choice = "row", axes = 2)
+
+fviz_contrib(ca, choice = "col", axes = 1)
+
+fviz_ca_biplot(ca, map ="rowprincipal", arrow = c(TRUE, TRUE), repel = TRUE)
+```
+
+## 4.4 Spiegazione dei risultati.
+
+Dal biplot degli individui e delle variabili, notiamo come i computer che presentano uno stato d'attività che sia inattivo o in manutenzione hanno anche un livello d'efficienza basso. Dal grafico si nota anche come i computer che invece risultano attivi hanno uno stato di efficienza medio. Tra i computer analizzati sembrano non esserci computer con uno stato di efficienza alto, forse perché ancora poco diffusi.
+
+# 5. Reti Neurali
+
+Prendendo in riferimento il dataset “**manufacturing_6G_dataset.csv**”, si è creata una rete neurale. Per prima cosa si sono installati i pacchetti necessari alla rappresentazione e al calcolo dei nodi.
+
+```{r}
+install.packages("nnet") 
+install.packages("dplyr") 
+install.packages("caret") 
+install.packages("ggplot2") 
+install.packages("NeuralNetTools")
+```
+
+Il pacchetto “*nnet*” permette di creare ed addestrare una rete neurale; il pacchetto “*dplyr*” permette di manipolare e pulire i dati utilizzati; il pacchetto “*caret*” permette la visualizzazione del modello attraverso una matrice di confusione; il pacchetto “*ggplot2*” permette le rappresentazioni grafiche; e, infine, il pacchetto “*NeuralNetTools*” permette la visualizzazione della struttura della rete neurale.
+
+Dopo aver installato e caricato i pacchetti. Procediamo a ricaricare il dataset, eliminando le colonne non necessarie alla creazione della rete neurale.
+
+```{r}
+library(nnet)
+library(dplyr) 
+library(caret) 
+library(ggplot2) 
+library(NeuralNetTools)  
+dataset <- read.csv("manufacturing_6G_dataset.csv") 
+df_cleaned <- df %>%   select(-Timestamp, -Machine_ID) %>%   
+  mutate(Operation_Mode = as.factor(Operation_Mode),
+  Efficiency_Status = as.factor(Efficiency_Status))  
+df_cleaned <- model.matrix(~.-1, data=df_cleaned)
+```
+
+La funzione `select(-Timestamp,-Machine_ID)` rimuove le colonne non necessarie (appunto, Timestamp e Machine_ID). La funzione `mutate()` converte le variabili *Operation_Mode* ed *Efficiency_Status* in variabili categoriche, quindi in fattori, poiché queste sono delle etichette e non dei numeri continui.
+
+La riga `df_cleaned <- model.matrix(~.-1, data=df_cleaned)` esegue un *one-hot encoding* sulle variabili categoriche, convertendole in numeri. `~.-1` significa che si vogliono trasformare tutte le variabili (tranne la colonna target) in variabili numeriche senza aggiungere un’intercetta.
+
+Separiamo le feature (**X**), cioè i dati di input per il modello, dai target (**Y**), cioè la variabile da predire che nel nostro caso è l’efficienza della macchina.
+
+```{r}
+X <- df_cleaned[, -ncol(df_cleaned)] 
+y <- df_cleaned[, ncol(df_cleaned)]
+```
+
+Per **X** il codice richiede di prendere in considerazione tutte le colonne tranne l’ultima, mentre per **Y** il codice richiede di prendere in considerazione solo l’ultima colonna.
+
+Successivamente, normalizziamo i dati di input. Questo è importante per le reti neurali perché permette la convergenza dell’addestramento.
+
+```{r}
+X <- scale(X)
+```
+
+Dividiamo poi il dataset normalizzato in modo che l’80% dei dati faccia parte del set di training, quindi quelli che serviranno ad addestrare il modello, e il 20% faccia parte del set di test, per verificare successivamente se il modello è efficace. `set.seed` è utile per far in modo che i dati vengano divisi randomicamente nello stesso modo ogni volta che il comando viene avviato, quindi per garantire risultati riproducibili. In questo caso, `set.seed(42)` fissa il generatore di numeri casuali per ottenere sempre lo stesso split nei dati.
+
+```{r}
+set.seed(42) 
+trainIndex <- sample(1:nrow(X), 0.8 * nrow(X)) 
+X_train <- X[trainIndex, ] 
+X_test <- X[-trainIndex, ] 
+y_train <- y[trainIndex] 
+y_test <- y[-trainIndex]
+```
+
+La funzione `sample(1:nrow(X),0.8*nrow(X))` prende l’80% dei dati in modo causale per il training. Il restante 20% sono destinati alla fase di test.
+
+Definiamo ed addestriamo poi la nostra rete neurale con il comando `nnet`.
+
+```{r}
+model <- nnet(X_train, y_train,
+               size = 10,  # Numero di neuroni nello strato nascosto
+               decay = 0.01,  # Regolarizzazione
+               maxit = 200  # Numero massimo di iterazioni
+              )
+```
+
+Il modello prende in considerazioni sia le **X** che le **Y** di training. `size=10` indica il numero di neuroni nel layer nascosto, quindi la rete avrà un singolo strato nascosto con 10 neuroni; `decay=0.01` serve a regolarizzare i dati per evitare l’overfitting; `maxit=200` fa riferimento al numero massimo di epoche, cioè quante volte il modello passa attraverso i dati.
+
+Visualizziamo la struttura del modello.
+
+```{r}
+plotnet(model)
+```
+
+Questa funzione mostra graficamente la struttura della rete neurale, con neuroni, connessioni e pesi, ed è utile a capire come il modello è stato costruito.
+
+Possiamo ora fare predizioni sui dati di test.
+
+```{r}
+y_pred <- predict(model, X_test) 
+y_pred <- factor(y_pred, levels = levels(as.factor(y_test)))
+```
+
+`predict(model, X_test)` ottiene le predizioni della rete neurale; `factor(y_pred, levels=levels(as.factor(y_test)))` converte le predizioni in fattori in modo che abbiamo gli stessi livelli delle y di test definite precedentemente. Questo serve ad evitare errori nella valutazione.
+
+Valutiamo le prestazioni del modello creato.
+
+```{r}
+conf_matrix <- confusionMatrix(as.factor(y_pred), as.factor(y_test)) 
+print(conf_matrix)
+```
+
+```{r}
+cat("Test Accuracy:", conf_matrix$overall["Accuracy"], "\n")
+```
+
+La funzione `confusionMatrix()` crea una matrice di confusione per visualizzare le prestazioni della rete. L’argomento `conf_matrix$overall[“Accuracy”]` estrae l’accuratezza globale del modello.
+
+Valutiamo l’errore nelle previsioni attraverso il calcolo dell’Errore Quadratico Medio (MSE).
+
+```{r}
+mse <- mean((as.numeric(y_pred) - as.numeric(y_test))^2) 
+cat("Mean Squared Error (MSE):", mse, "\n")
+```
+
+L’argomento `as.numeric(y_pred)-as.numeric(y_test)` calcola la differenza tra i valori predetti e quelli reali. La funzione `mean((as.numeric(y_pred) - as.numeric(y_test))^2)` eleva al quadrato e calcola la media, ottenendo così l’MSE. Più il risultato dell’errore medio delle predizioni è basso, migliore è il modello.
+
+## **Spiegazioni dei risultati.**
+
+I risultati ottenuti dal calcolo della matrice di confusione e dalle statistiche mostrano un modello che ha un’accuratezza del 100%, quindi che è in grado di prevedere perfettamente i dati. Questo potrebbe far pensare ad un errore di overfitting, ma tenendo conto delle altre misure calcolate potrebbe essere escluso.
+
+Il No Information Rate (NIR) valuta la proporzione della classe più comune nel dataset, quindi quanto il modello sarebbe stato accurato se avesse fatto le predizioni semplicemente tenendo in considerazione la classe più frequente. Il NIR è pari a 0.8031, quindi il modello avrebbe avuto un’accuratezza dell’80.31%. Poiché il modello ha un’accuratezza del 100%, ciò significa che sta facendo molto meglio rispetto all’indovinare la classe più comune. Il fatto che il modello lavori meglio rispetto al NIR è confermato anche dal valore del p-value (\<2.2e-16), che indica che la differenza tra l’accuratezza del modello e il NIR è statisticamente significativa.
+
+Il Kappa Score misura l’accordo tra le predizioni del modello e le etichette reali, considerando la probabilità che l’accorso sia avvenuto per caso. Nel nostro caso, il valore del Kappa Score è uguale ad 1, quindi c’è un accordo perfetto tra il modello e i dati reali.
+
+La sensitività del modello, cioè la capacità di riconoscere la classe positiva, è del 100%, quindi il modello ha identificato tutti i casi positivi correttamente. Stessa cosa per la specificità, cioè la capacità di riconoscere la classe negativa.
+
+La precisione indica quanti dei campioni classificati come positivi o come negativi sono effetticamente positivi o negativi. In entrambe le condizioni, il modello ha avuto una precisione del 100%, classificando correttamente tutti i positivi e tutti i negativi.
+
+La prevalenza è la proporzione dei dati che appartenfono alla classe positiva. Nel nostro caso, si ha una prevalenza dell’80%. Il Detection Rate, cioè la frazione dei positivi effettivamente indicati, del modello è dell’80%, quindi coerente con un modello perfetto.
+
+L’accuratezza bilanciata è la media tra la sensitività e la specificità. Nel nostro modello corrisponde al 100%, quindi il modello è perfettamente bilanciato nel riconoscere le classi.
+
+Per verificare se questi risultati sono frutto di un errore di overfitting bisognerebbe testare il modello su nuovi dati.
